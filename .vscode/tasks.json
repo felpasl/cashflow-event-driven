@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "kill-dev-ports",
+      "type": "shell",
+      "command": "for p in 3000 5001 5002; do pid=$(lsof -ti tcp:$p -sTCP:LISTEN 2>/dev/null); if [ -n \"$pid\" ]; then kill $pid 2>/dev/null; fi; done",
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

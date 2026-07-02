@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/consolidado-service/">
+    <Project Path="src/consolidado-service/ConsolidadoService.csproj" />
+  </Folder>
+  <Folder Name="/src/lancamentos-service/">
+    <Project Path="src/lancamentos-service/LancamentosService.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/consolidado-service.Tests/">
+    <Project Path="tests/consolidado-service.Tests/ConsolidadoService.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/lancamentos-service.Tests/">
+    <Project Path="tests/lancamentos-service.Tests/LancamentosService.Tests.csproj" />
+  </Folder>
+</Solution>

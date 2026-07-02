@@ -1,0 +1,10 @@
+.git
+.github
+.agents
+.claude
+.devcontainer
+**/bin
+**/obj
+**/.next
+**/node_modules
+**/.env.local

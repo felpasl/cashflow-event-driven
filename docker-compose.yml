@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  lancamentos-service:
+    build:
+      context: .
+      dockerfile: src/lancamentos-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__LancamentosDb: Host=postgres;Port=5432;Database=lancamentos_db;Username=postgres;Password=postgres
+      Redis__ConnectionString: redis:6379
+      Redis__StreamName: cashflow.lancamentos
+    ports:
+      - "5001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  consolidado-service:
+    build:
+      context: .
+      dockerfile: src/consolidado-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__ConsolidadoDb: Host=postgres;Port=5432;Database=consolidado_db;Username=postgres;Password=postgres
+      Redis__ConnectionString: redis:6379
+      Redis__StreamName: cashflow.lancamentos
+      Redis__ConsumerGroup: consolidado-service
+      Redis__CacheTtlSeconds: 60
+    ports:
+      - "5002:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: src/frontend/Dockerfile
+      args:
+        NEXT_PUBLIC_LANCAMENTOS_API_URL: http://localhost:5001
+        NEXT_PUBLIC_CONSOLIDADO_API_URL: http://localhost:5002
+        NEXT_PUBLIC_MERCHANT_ID: 00000000-0000-0000-0000-000000000001
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - lancamentos-service
+      - consolidado-service
+
+volumes:
+  postgres-data:
+  redis-data:

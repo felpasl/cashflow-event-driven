@@ -1,0 +1,100 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Frontend: Next.js (devcontainer)",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/src/frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "env": {
+        "NEXT_PUBLIC_LANCAMENTOS_API_URL": "http://localhost:5001",
+        "NEXT_PUBLIC_CONSOLIDADO_API_URL": "http://localhost:5002",
+        "NEXT_PUBLIC_MERCHANT_ID": "00000000-0000-0000-0000-000000000001"
+      },
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(https?://localhost:[0-9]+)",
+        "uriFormat": "%s",
+        "action": "openExternally"
+      },
+      "postDebugTask": "kill-dev-ports"
+    },
+    {
+      "name": "API: Lançamentos (devcontainer)",
+      "type": "coreclr",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/src/lancamentos-service",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--no-launch-profile",
+        "--project",
+        "${workspaceFolder}/src/lancamentos-service/LancamentosService.csproj"
+      ],
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://0.0.0.0:5001",
+        "ConnectionStrings__LancamentosDb": "Host=db;Port=5432;Database=lancamentos_db;Username=postgres;Password=postgres",
+        "Redis__ConnectionString": "redis:6379",
+        "Redis__StreamName": "cashflow.lancamentos"
+      },
+      "serverReadyAction": {
+        "pattern": "Now listening on:\\s+http://0\\.0\\.0\\.0:([0-9]+)",
+        "uriFormat": "http://localhost:%s/health/ready",
+        "action": "openExternally"
+      },
+      "postDebugTask": "kill-dev-ports"
+    },
+    {
+      "name": "API: Consolidado (devcontainer)",
+      "type": "coreclr",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/src/consolidado-service",
+      "program": "dotnet",
+      "args": [
+        "run",
+        "--no-launch-profile",
+        "--project",
+        "${workspaceFolder}/src/consolidado-service/ConsolidadoService.csproj"
+      ],
+      "console": "integratedTerminal",
+      "stopAtEntry": false,
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://0.0.0.0:5002",
+        "ConnectionStrings__ConsolidadoDb": "Host=db;Port=5432;Database=consolidado_db;Username=postgres;Password=postgres",
+        "Redis__ConnectionString": "redis:6379",
+        "Redis__StreamName": "cashflow.lancamentos",
+        "Redis__ConsumerGroup": "consolidado-service",
+        "Redis__CacheTtlSeconds": "60"
+      },
+      "serverReadyAction": {
+        "pattern": "Now listening on:\\s+http://0\\.0\\.0\\.0:([0-9]+)",
+        "uriFormat": "http://localhost:%s/health/ready",
+        "action": "openExternally"
+      },
+      "postDebugTask": "kill-dev-ports"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full stack devcontainer: Frontend + APIs",
+      "configurations": [
+        "API: Lançamentos (devcontainer)",
+        "API: Consolidado (devcontainer)",
+        "Frontend: Next.js (devcontainer)"
+      ],
+      "stopAll": true,
+      "postDebugTask": "kill-dev-ports"
+    }
+  ]
+}
