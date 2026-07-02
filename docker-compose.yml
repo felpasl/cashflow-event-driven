@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: postgres
     ports:
       - "5432:5432"
+    networks:
+      - cashflow-envent-driven
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -22,6 +24,8 @@ services:
     command: redis-server --appendonly yes
     ports:
       - "6379:6379"
+    networks:
+      - cashflow-envent-driven
     volumes:
       - redis-data:/data
     healthcheck:
@@ -42,6 +46,8 @@ services:
       Redis__StreamName: cashflow.lancamentos
     ports:
       - "5001:8080"
+    networks:
+      - cashflow-envent-driven
     depends_on:
       postgres:
         condition: service_healthy
@@ -62,6 +68,8 @@ services:
       Redis__CacheTtlSeconds: 60
     ports:
       - "5002:8080"
+    networks:
+      - cashflow-envent-driven
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,9 +87,14 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    networks:
+      - cashflow-envent-driven
     depends_on:
       - lancamentos-service
       - consolidado-service
+
+networks:
+  cashflow-envent-driven:
 
 volumes:
   postgres-data:
