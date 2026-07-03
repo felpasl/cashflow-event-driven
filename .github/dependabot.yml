@@ -10,3 +10,19 @@ updates:
    directory: "/"
    schedule:
      interval: weekly
+
+ - package-ecosystem: "nuget"
+   directory: "/"
+   schedule:
+     interval: weekly
+   labels:
+     - "dependencies"
+     - "dotnet"
+
+ - package-ecosystem: "npm"
+   directory: "/src/frontend"
+   schedule:
+     interval: weekly
+   labels:
+     - "dependencies"
+     - "frontend"
