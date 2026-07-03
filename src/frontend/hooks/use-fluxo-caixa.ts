@@ -72,9 +72,25 @@ export function useFluxoCaixa() {
     }
   }
 
+  async function alterarDataConsolidado(date: string) {
+    setDataConsolidado(date);
+    setLoading(true);
+    setError(null);
+
+    try {
+      await loadConsolidado(date);
+      setNotice("Consolidado atualizado para a data selecionada.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro inesperado.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return {
     dataConsolidado,
     setDataConsolidado,
+    alterarDataConsolidado,
     lancamentos,
     consolidado,
     loading,

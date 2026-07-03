@@ -9,7 +9,7 @@ import { useFluxoCaixa } from "@/hooks/use-fluxo-caixa";
 export default function Home() {
   const {
     dataConsolidado,
-    setDataConsolidado,
+    alterarDataConsolidado,
     lancamentos,
     consolidado,
     loading,
@@ -33,7 +33,7 @@ export default function Home() {
               consolidado={consolidado}
               dataConsolidado={dataConsolidado}
               loading={loading}
-              onDataChange={setDataConsolidado}
+              onDataChange={alterarDataConsolidado}
               onRefresh={refreshConsolidado}
             />
           </div>
