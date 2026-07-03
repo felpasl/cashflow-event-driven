@@ -1,10 +1,11 @@
 using System.Text.Json;
+using ConsolidadoService.Application;
 using ConsolidadoService.Contracts;
 using StackExchange.Redis;
 
 namespace ConsolidadoService.Infrastructure;
 
-public sealed class ConsolidadoCache(IConnectionMultiplexer redis, IConfiguration configuration)
+public sealed class ConsolidadoCache(IConnectionMultiplexer redis, IConfiguration configuration) : IConsolidadoCache
 {
     private readonly IDatabase _database = redis.GetDatabase();
     private readonly TimeSpan _ttl = TimeSpan.FromSeconds(configuration.GetValue("Redis:CacheTtlSeconds", 60));

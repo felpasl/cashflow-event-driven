@@ -1,7 +1,7 @@
 using System.Text.Json;
+using ConsolidadoService.Application;
 using ConsolidadoService.Contracts;
 using ConsolidadoService.Domain;
-using ConsolidadoService.Infrastructure;
 using ConsolidadoService.Persistence;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -74,7 +74,7 @@ public sealed class LancamentosStreamConsumerWorker(
 
         await using var scope = scopeFactory.CreateAsyncScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<ConsolidadoDbContext>();
-        var cache = scope.ServiceProvider.GetRequiredService<ConsolidadoCache>();
+        var cache = scope.ServiceProvider.GetRequiredService<IConsolidadoCache>();
 
         if (await dbContext.ProcessedEvents.AnyAsync(x => x.EventId == eventId, cancellationToken))
         {

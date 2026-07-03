@@ -1,6 +1,9 @@
 using System.Text.Json.Serialization;
+using LancamentosService.Application;
+using LancamentosService.Application.UseCases;
 using LancamentosService.Endpoints;
 using LancamentosService.Persistence;
+using LancamentosService.Repositories;
 using LancamentosService.Workers;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -20,6 +23,12 @@ builder.Services.AddCors(options =>
 builder.Services.AddHealthChecks();
 builder.Services.AddDbContext<LancamentosDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("LancamentosDb")));
+builder.Services.AddScoped<ILancamentosRepository, LancamentosRepository>();
+
+builder.Services.AddScoped<CriarLancamentoUseCase>();
+builder.Services.AddScoped<ListarLancamentosUseCase>();
+builder.Services.AddScoped<ObterLancamentoUseCase>();
+builder.Services.AddScoped<EstornarLancamentoUseCase>();
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString") ?? "localhost:6379"));

@@ -1,6 +1,9 @@
+using ConsolidadoService.Application;
+using ConsolidadoService.Application.UseCases;
 using ConsolidadoService.Endpoints;
 using ConsolidadoService.Infrastructure;
 using ConsolidadoService.Persistence;
+using ConsolidadoService.Repositories;
 using ConsolidadoService.Workers;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -18,7 +21,12 @@ builder.Services.AddDbContext<ConsolidadoDbContext>(options =>
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
     ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("Redis:ConnectionString") ?? "localhost:6379"));
-builder.Services.AddScoped<ConsolidadoCache>();
+builder.Services.AddScoped<IConsolidadoCache, ConsolidadoCache>();
+builder.Services.AddScoped<IConsolidadoRepository, ConsolidadoRepository>();
+
+builder.Services.AddScoped<ObterConsolidadoUseCase>();
+builder.Services.AddScoped<ListarConsolidadosUseCase>();
+
 builder.Services.AddHostedService<LancamentosStreamConsumerWorker>();
 
 var app = builder.Build();

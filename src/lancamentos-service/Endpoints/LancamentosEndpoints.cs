@@ -1,8 +1,7 @@
 using LancamentosService.Application;
+using LancamentosService.Application.UseCases;
 using LancamentosService.Contracts;
 using LancamentosService.Domain;
-using LancamentosService.Persistence;
-using Microsoft.EntityFrameworkCore;
 
 namespace LancamentosService.Endpoints;
 
@@ -12,7 +11,7 @@ public static class LancamentosEndpoints
     {
         var group = app.MapGroup("/api/v1/lancamentos");
 
-        group.MapPost("/", async (HttpRequest httpRequest, CreateLancamentoRequest request, LancamentosDbContext dbContext, ILogger<Program> logger) =>
+        group.MapPost("/", async (HttpRequest httpRequest, CreateLancamentoRequest request, CriarLancamentoUseCase useCase, ILogger<Program> logger) =>
         {
             if (!MerchantContext.TryGetMerchantId(httpRequest, out var merchantId))
             {
@@ -20,92 +19,41 @@ public static class LancamentosEndpoints
                 return Results.BadRequest(new { message = "Header X-Merchant-Id é obrigatório e deve ser um UUID válido." });
             }
 
-            try
+            var result = await useCase.ExecutarAsync(merchantId, request);
+
+            return result switch
             {
-                var hoje = DateOnly.FromDateTime(DateTime.UtcNow);
-                var lancamento = Lancamento.Criar(
-                    merchantId,
-                    request.Tipo,
-                    request.Valor,
-                    request.DataLancamento,
-                    request.Descricao,
-                    request.Categoria,
-                    hoje);
-
-                dbContext.Lancamentos.Add(lancamento);
-                dbContext.OutboxEvents.Add(lancamento.ToOutboxEvent());
-                await dbContext.SaveChangesAsync();
-
-                logger.LogInformation(
-                    "Lançamento {LancamentoId} registrado para o merchant {MerchantId}: {Tipo} de {Valor} em {DataLancamento}.",
-                    lancamento.Id, merchantId, lancamento.Tipo, lancamento.Valor, lancamento.DataLancamento);
-
-                return Results.Created($"/api/v1/lancamentos/{lancamento.Id}", lancamento.ToResponse());
-            }
-            catch (DomainException ex)
-            {
-                logger.LogWarning(ex, "Falha de domínio ao registrar lançamento para o merchant {MerchantId}.", merchantId);
-                return Results.BadRequest(new { message = ex.Message });
-            }
+                CriarLancamentoResult.Sucesso s => Results.Created($"/api/v1/lancamentos/{s.Lancamento.Id}", s.Lancamento),
+                CriarLancamentoResult.Invalido i => Results.BadRequest(new { message = i.Mensagem }),
+                _ => Results.Problem()
+            };
         });
 
-        group.MapGet("/", async (HttpRequest httpRequest, DateOnly? de, DateOnly? ate, TipoLancamento? tipo, string? categoria, int? page, int? pageSize, LancamentosDbContext dbContext) =>
+        group.MapGet("/", async (HttpRequest httpRequest, DateOnly? de, DateOnly? ate, TipoLancamento? tipo, string? categoria, int? page, int? pageSize, ListarLancamentosUseCase useCase) =>
         {
             if (!MerchantContext.TryGetMerchantId(httpRequest, out var merchantId))
             {
                 return Results.BadRequest(new { message = "Header X-Merchant-Id é obrigatório e deve ser um UUID válido." });
             }
 
-            var currentPage = Math.Max(page ?? 1, 1);
-            var currentPageSize = Math.Clamp(pageSize ?? 20, 1, 100);
-
-            var query = dbContext.Lancamentos.AsNoTracking().Where(x => x.MerchantId == merchantId);
-
-            if (de.HasValue)
-            {
-                query = query.Where(x => x.DataLancamento >= de.Value);
-            }
-
-            if (ate.HasValue)
-            {
-                query = query.Where(x => x.DataLancamento <= ate.Value);
-            }
-
-            if (tipo.HasValue)
-            {
-                query = query.Where(x => x.Tipo == tipo.Value);
-            }
-
-            if (!string.IsNullOrWhiteSpace(categoria))
-            {
-                query = query.Where(x => x.Categoria == categoria);
-            }
-
-            var items = await query
-                .OrderByDescending(x => x.DataLancamento)
-                .ThenByDescending(x => x.CriadoEm)
-                .Skip((currentPage - 1) * currentPageSize)
-                .Take(currentPageSize)
-                .Select(x => x.ToResponse())
-                .ToListAsync();
+            var items = await useCase.ExecutarAsync(merchantId, de, ate, tipo, categoria, page, pageSize);
 
             return Results.Ok(items);
         });
 
-        group.MapGet("/{id:guid}", async (HttpRequest httpRequest, Guid id, LancamentosDbContext dbContext) =>
+        group.MapGet("/{id:guid}", async (HttpRequest httpRequest, Guid id, ObterLancamentoUseCase useCase) =>
         {
             if (!MerchantContext.TryGetMerchantId(httpRequest, out var merchantId))
             {
                 return Results.BadRequest(new { message = "Header X-Merchant-Id é obrigatório e deve ser um UUID válido." });
             }
 
-            var lancamento = await dbContext.Lancamentos.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.Id == id && x.MerchantId == merchantId);
+            var lancamento = await useCase.ExecutarAsync(merchantId, id);
 
-            return lancamento is null ? Results.NotFound() : Results.Ok(lancamento.ToResponse());
+            return lancamento is null ? Results.NotFound() : Results.Ok(lancamento);
         });
 
-        group.MapPost("/{id:guid}/estorno", async (HttpRequest httpRequest, Guid id, LancamentosDbContext dbContext, ILogger<Program> logger) =>
+        group.MapPost("/{id:guid}/estorno", async (HttpRequest httpRequest, Guid id, EstornarLancamentoUseCase useCase, ILogger<Program> logger) =>
         {
             if (!MerchantContext.TryGetMerchantId(httpRequest, out var merchantId))
             {
@@ -113,38 +61,16 @@ public static class LancamentosEndpoints
                 return Results.BadRequest(new { message = "Header X-Merchant-Id é obrigatório e deve ser um UUID válido." });
             }
 
-            var original = await dbContext.Lancamentos.FirstOrDefaultAsync(x => x.Id == id && x.MerchantId == merchantId);
-            if (original is null)
-            {
-                logger.LogWarning("Tentativa de estornar lançamento inexistente {LancamentoId} para o merchant {MerchantId}.", id, merchantId);
-                return Results.NotFound();
-            }
+            var result = await useCase.ExecutarAsync(merchantId, id);
 
-            var alreadyReversed = await dbContext.Lancamentos.AnyAsync(x => x.EstornoDoLancamentoId == id && x.MerchantId == merchantId);
-            if (alreadyReversed)
+            return result switch
             {
-                logger.LogWarning("Tentativa de estornar lançamento {LancamentoId} já estornado para o merchant {MerchantId}.", id, merchantId);
-                return Results.Conflict(new { message = "Lançamento já foi estornado." });
-            }
-
-            try
-            {
-                var estorno = original.Estornar(DateOnly.FromDateTime(DateTime.UtcNow));
-                dbContext.Lancamentos.Add(estorno);
-                dbContext.OutboxEvents.Add(estorno.ToOutboxEvent());
-                await dbContext.SaveChangesAsync();
-
-                logger.LogInformation(
-                    "Estorno {EstornoId} registrado para o lançamento {LancamentoId} do merchant {MerchantId}.",
-                    estorno.Id, id, merchantId);
-
-                return Results.Created($"/api/v1/lancamentos/{estorno.Id}", estorno.ToResponse());
-            }
-            catch (DomainException ex)
-            {
-                logger.LogWarning(ex, "Falha de domínio ao estornar lançamento {LancamentoId} do merchant {MerchantId}.", id, merchantId);
-                return Results.BadRequest(new { message = ex.Message });
-            }
+                EstornarLancamentoResult.Sucesso s => Results.Created($"/api/v1/lancamentos/{s.Lancamento.Id}", s.Lancamento),
+                EstornarLancamentoResult.NaoEncontrado => Results.NotFound(),
+                EstornarLancamentoResult.JaEstornado => Results.Conflict(new { message = "Lançamento já foi estornado." }),
+                EstornarLancamentoResult.Invalido i => Results.BadRequest(new { message = i.Mensagem }),
+                _ => Results.Problem()
+            };
         });
 
         return group;
